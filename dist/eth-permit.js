@@ -11,7 +11,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.signERC2612Permit = exports.signDaiPermit = void 0;
 const rpc_1 = require("./rpc");
-const lib_1 = require("./lib");
 const MAX_INT = 100000000000000;
 const EIP712Domain = [
     { name: "name", type: "string" },
@@ -58,23 +57,41 @@ const createTypedERC2612Data = (message, domain) => {
 const NONCES_FN = '0x7ecebe00';
 const NAME_FN = '0x06fdde03';
 const zeros = (numZeros) => ''.padEnd(numZeros, '0');
-const getTokenName = (provider, address) => __awaiter(void 0, void 0, void 0, function* () { return lib_1.hexToUtf8((yield rpc_1.call(provider, address, NAME_FN)).substr(130)); });
-const getDomain = (provider, token, version, name) => __awaiter(void 0, void 0, void 0, function* () {
-    if (typeof token !== 'string') {
-        return token;
+// const getTokenName = async (provider: any, address: string) =>
+//   hexToUtf8((await call(provider, address, NAME_FN)).substr(130));
+const getTokenInfo = (token) => {
+    if (token.toUpperCase() == '0x6b175474e89094c44da98b954eedeac495271d0f'.toUpperCase()) {
+        const tokenInfo = {
+            name: 'DAI',
+            fullName: 'Dai Stablecoin',
+            version: '1',
+        };
+        return tokenInfo;
     }
-    const tokenAddress = token;
-    // const [name, chainId] = await Promise.all([
-    //   getTokenName(provider, tokenAddress),
-    //   getChainId(provider),
-    // ]);
-    if (name == 'DAI') {
-        name = 'Dai Stablecoin';
+    else if (token.toUpperCase() == '0xdc035d45d973e3ec169d2276ddab16f1e407384f'.toUpperCase()) {
+        const tokenInfo = {
+            name: 'USDS',
+            fullName: 'USDS Stablecoin',
+            version: '1',
+        };
+        return tokenInfo;
     }
-    else if (name == 'USDC') {
-        name = 'USD Coin';
+    else if (token.toUpperCase() == '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'.toUpperCase()) {
+        const tokenInfo = {
+            name: 'USDC',
+            fullName: 'USD Coin',
+            version: '2',
+        };
+        return tokenInfo;
     }
-    const domain = { name, version: version, chainId: 1, verifyingContract: tokenAddress };
+    return null;
+};
+const getDomain = (provider, token, chainId) => __awaiter(void 0, void 0, void 0, function* () {
+    const tokenInfo = getTokenInfo(token);
+    if (tokenInfo == null) {
+        throw new Error('Token not supported');
+    }
+    const domain = { name: tokenInfo.fullName, version: tokenInfo.version, chainId: chainId, verifyingContract: token };
     return domain;
 });
 exports.signDaiPermit = (provider, token, holder, spender, expiry, nonce) => __awaiter(void 0, void 0, void 0, function* () {
@@ -91,7 +108,8 @@ exports.signDaiPermit = (provider, token, holder, spender, expiry, nonce) => __a
         expiry: expiry || MAX_INT,
         allowed: true,
     };
-    const domain = yield getDomain(provider, token, '1', 'DAI');
+    let chainId = typeof token !== 'string' ? token.chainId : 1;
+    let domain = typeof token !== 'string' ? token : yield getDomain(provider, tokenAddress, chainId);
     const typedData = createTypedDaiData(message, domain);
     const sig = yield rpc_1.signData(provider, holder, typedData);
     return Object.assign(Object.assign({}, sig), message);
@@ -110,7 +128,8 @@ exports.signERC2612Permit = (provider, token, owner, spender, value = MAX_INT, d
         nonce: nonce === undefined ? nonceTemp : nonce,
         deadline: deadline || 3325150269000,
     };
-    const domain = yield getDomain(provider, token, '2', 'USDC');
+    let chainId = typeof token !== 'string' ? token.chainId : 1;
+    let domain = typeof token !== 'string' ? token : yield getDomain(provider, tokenAddress, chainId);
     const typedData = createTypedERC2612Data(message, domain);
     const sig = yield rpc_1.signData(provider, owner, typedData);
     return Object.assign(Object.assign({}, sig), message);

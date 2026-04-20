@@ -1,5 +1,6 @@
 
 # 更新发包
+npm version patch/minor/major
 npm publish --access public
 
 # bug fix

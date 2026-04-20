@@ -22,6 +22,7 @@ interface ERC2612PermitMessage {
 interface TokenInfo {
   name: string;
   fullName: string;
+  version: string;
 }
 interface Domain {
   name: string;
@@ -90,35 +91,33 @@ const getTokenInfo = (token: string) => {
     const tokenInfo: TokenInfo = {
       name: 'DAI',
       fullName: 'Dai Stablecoin',
+      version: '1',
     }
     return tokenInfo;
   } else if (token.toUpperCase() == '0xdc035d45d973e3ec169d2276ddab16f1e407384f'.toUpperCase()) {
     const tokenInfo: TokenInfo = {
       name: 'USDS',
       fullName: 'USDS Stablecoin',
+      version: '1',
     }
     return tokenInfo;
   } else if (token.toUpperCase() == '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'.toUpperCase()) {
     const tokenInfo: TokenInfo = {
       name: 'USDC',
       fullName: 'USD Coin',
+      version: '2',
     }
     return tokenInfo;
   }
   return null;
 }
 
-const getDomain = async (provider: any, token: string, version: string , chainId: number): Promise<Domain> => {
-  
-  // const [name, chainId] = await Promise.all([
-  //   getTokenName(provider, tokenAddress),
-  //   getChainId(provider),
-  // ]);
+const getDomain = async (provider: any, token: string, chainId: number): Promise<Domain> => {
   const tokenInfo = getTokenInfo(token);
   if (tokenInfo == null) {
     throw new Error('Token not supported');
   }
-  const domain: Domain = { name: tokenInfo.fullName, version: version, chainId:chainId, verifyingContract: token };
+  const domain: Domain = { name: tokenInfo.fullName, version: tokenInfo.version, chainId: chainId, verifyingContract: token };
   return domain;
 };
 
@@ -144,7 +143,7 @@ export const signDaiPermit = async (
     allowed: true,
   };
   let chainId = typeof token !== 'string' ? (token as Domain).chainId : 1;
-  let domain = typeof token !== 'string' ? token as Domain : await getDomain(provider, tokenAddress , '1', chainId);
+  let domain = typeof token !== 'string' ? token as Domain : await getDomain(provider, tokenAddress, chainId);
   const typedData = createTypedDaiData(message, domain);
   const sig = await signData(provider, holder, typedData);
 
@@ -176,7 +175,7 @@ export const signERC2612Permit = async (
   };
 
   let chainId = typeof token !== 'string' ? (token as Domain).chainId : 1;
-  let domain = typeof token !== 'string' ? token as Domain : await getDomain(provider, tokenAddress , '2', chainId);
+  let domain = typeof token !== 'string' ? token as Domain : await getDomain(provider, tokenAddress, chainId);
   const typedData = createTypedERC2612Data(message, domain);
   const sig = await signData(provider, owner, typedData);
 
