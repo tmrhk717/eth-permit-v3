@@ -19,6 +19,10 @@ interface ERC2612PermitMessage {
   deadline: number | string;
 }
 
+interface TokenInfo {
+  name: string;
+  fullName: string;
+}
 interface Domain {
   name: string;
   version: string;
@@ -78,27 +82,43 @@ const NAME_FN = '0x06fdde03';
 
 const zeros = (numZeros: number) => ''.padEnd(numZeros, '0');
 
-const getTokenName = async (provider: any, address: string) =>
-  hexToUtf8((await call(provider, address, NAME_FN)).substr(130));
+// const getTokenName = async (provider: any, address: string) =>
+//   hexToUtf8((await call(provider, address, NAME_FN)).substr(130));
 
-
-const getDomain = async (provider: any, token: string | Domain, version: string , name: string): Promise<Domain> => {
-  if (typeof token !== 'string') {
-    return token as Domain;
+const getTokenInfo = (token: string) => {
+  if (token.toUpperCase() == '0x6b175474e89094c44da98b954eedeac495271d0f'.toUpperCase()) {
+    const tokenInfo: TokenInfo = {
+      name: 'DAI',
+      fullName: 'Dai Stablecoin',
+    }
+    return tokenInfo;
+  } else if (token.toUpperCase() == '0xdc035d45d973e3ec169d2276ddab16f1e407384f'.toUpperCase()) {
+    const tokenInfo: TokenInfo = {
+      name: 'USDS',
+      fullName: 'USDS Stablecoin',
+    }
+    return tokenInfo;
+  } else if (token.toUpperCase() == '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'.toUpperCase()) {
+    const tokenInfo: TokenInfo = {
+      name: 'USDC',
+      fullName: 'USD Coin',
+    }
+    return tokenInfo;
   }
+  return null;
+}
 
-  const tokenAddress = token as string;
-
+const getDomain = async (provider: any, token: string, version: string , chainId: number): Promise<Domain> => {
+  
   // const [name, chainId] = await Promise.all([
   //   getTokenName(provider, tokenAddress),
   //   getChainId(provider),
   // ]);
-  if (name == 'DAI') {
-    name = 'Dai Stablecoin'
-  }else if (name == 'USDC') {
-    name = 'USD Coin'
+  const tokenInfo = getTokenInfo(token);
+  if (tokenInfo == null) {
+    throw new Error('Token not supported');
   }
-  const domain: Domain = { name, version: version, chainId:1, verifyingContract: tokenAddress };
+  const domain: Domain = { name: tokenInfo.fullName, version: version, chainId:chainId, verifyingContract: token };
   return domain;
 };
 
@@ -123,8 +143,8 @@ export const signDaiPermit = async (
     expiry: expiry || MAX_INT,
     allowed: true,
   };
-
-  const domain = await getDomain(provider, token , '1','DAI');
+  let chainId = typeof token !== 'string' ? (token as Domain).chainId : 1;
+  let domain = typeof token !== 'string' ? token as Domain : await getDomain(provider, tokenAddress , '1', chainId);
   const typedData = createTypedDaiData(message, domain);
   const sig = await signData(provider, holder, typedData);
 
@@ -155,7 +175,8 @@ export const signERC2612Permit = async (
     deadline: deadline || 3325150269000,
   };
 
-  const domain = await getDomain(provider, token , '2','USDC');
+  let chainId = typeof token !== 'string' ? (token as Domain).chainId : 1;
+  let domain = typeof token !== 'string' ? token as Domain : await getDomain(provider, tokenAddress , '2', chainId);
   const typedData = createTypedERC2612Data(message, domain);
   const sig = await signData(provider, owner, typedData);
 

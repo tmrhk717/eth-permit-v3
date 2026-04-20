@@ -1,17 +1,17 @@
 {
-  "name": "eth-permit-v2",
+  "name": "eth-permit-v3",
   "version": "1.0.0",
   "description": "Sign permit messages for Ethereum tokens",
   "main": "dist/eth-permit.js",
   "types": "dist/eth-permit.d.ts",
-  "author": "juzi <juzi777888@outlook.com>",
+  "author": "tmrhk717 <tmrhk717@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/juzi777888/eth-permit-v2.git"
+    "url": "git+https://github.com/tmrhk717/eth-permit-v3.git"
   },
   "bugs": {
-    "url": "https://github.com/juzi777888/eth-permit-v2/issues"
+    "url": "https://github.com/tmrhk717/eth-permit-v3/issues"
   },
   "scripts": {
     "build": "tsc",
@@ -31,12 +31,13 @@
   "dependencies": {
     "utf8": "^3.0.0"
   },
-  "homepage": "https://github.com/juzi777888/eth-permit#readme",
+  "homepage": "https://github.com/tmrhk717/eth-permit-v3#readme",
   "directories": {
     "test": "test"
   },
   "keywords": [
     "eth-permit",
-    "eth-permit-v2"
+    "eth-permit-v2",
+    "eth-permit-v3"
   ]
 }

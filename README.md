@@ -3,7 +3,7 @@
 npm publish --access public
 
 # bug fix
-clone github.com/dmihal/eth-permit 
+clone github.com/tmrhk717/eth-permit-v3
 and fix bugs 
 # eth-permit
 
@@ -25,12 +25,12 @@ for signing both types of messages.
 
 ## Usage
 
-Install the package `eth-permit` using npm or yarn.
+Install the package `eth-permit-v3` using npm or yarn.
 
 ### Dai-style permits
 
 ```javascript
-import { signDaiPermit } from 'eth-permit';
+import { signDaiPermit } from 'eth-permit-v3';
 
 // Sign message using injected provider (ie Metamask).
 // You can replace window.ethereum with any other web3 provider.
@@ -44,7 +44,7 @@ await token.methods.permit(senderAddress, spender, result.nonce, result.expiry, 
 ### ERC2612-style permits
 
 ```javascript
-import { signERC2612Permit } from 'eth-permit';
+import { signERC2612Permit } from 'eth-permit-v3';
 
 const value = web3.utils.toWei('1', 'ether');
 
@@ -62,7 +62,7 @@ await token.methods.permit(senderAddress, spender, value, result.deadline, resul
 The library now supports Ethers.js Wallet signers:
 
 ```javascript
-import { signERC2612Permit } from 'eth-permit';
+import { signERC2612Permit } from 'eth-permit-v3';
 
 const value = web3.utils.toWei('1', 'ether');
 
@@ -83,7 +83,7 @@ There are setups with dev test networks that fork from the mainnet.  While this 
 If all the information (such as nonce and expiry) is not provided to the signDaiPermit or signERC2512Permit functions then queries are made to determine information with the forked chainId so you would need the provider to have the forked chainId.  However, a provider that has the mainnet chainId is required to sign the message.  Therefor, all information should be passed to the functions and not left to defaults.
 
 ```javascript
-import { signDaiPermit } from 'eth-permit';
+import { signDaiPermit } from 'eth-permit-v3';
 
 const max_int = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
