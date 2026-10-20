@@ -1,4 +1,4 @@
-import { getChainId, call, signData, RSV } from './rpc';
+import { getChainId, call, signData, normalizeUint, RSV } from './rpc';
 import { hexToUtf8 } from './lib';
 
 const MAX_INT = 100000000000000;
@@ -121,6 +121,9 @@ const getDomain = async (provider: any, token: string, chainId: number): Promise
   return domain;
 };
 
+const isMissingNonce = (nonce: any) =>
+  nonce === undefined || nonce === null || nonce === '';
+
 export const signDaiPermit = async (
   provider: any,
   token: string | Domain,
@@ -130,16 +133,18 @@ export const signDaiPermit = async (
   nonce?: number,
 ): Promise<DaiPermitMessage & RSV> => {
   const tokenAddress = (token as Domain).verifyingContract || token as string;
-  let nonceTemp = 0;
-  if (nonce === undefined) {
-    nonceTemp = await call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${holder.substr(2)}`);
-    nonceTemp = parseInt(nonceTemp+ '');
+  let resolvedNonce: string | number = 0;
+  if (isMissingNonce(nonce)) {
+    const raw = await call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${holder.substr(2)}`);
+    resolvedNonce = parseInt(raw + '', 10) || 0;
+  } else {
+    resolvedNonce = normalizeUint(nonce, 0);
   }
   const message: DaiPermitMessage = {
     holder,
     spender,
-    nonce: nonce === undefined ? nonceTemp : Number(nonce),
-    expiry: expiry || MAX_INT,
+    nonce: Number(resolvedNonce),
+    expiry: normalizeUint(expiry, MAX_INT),
     allowed: true,
   };
   let chainId = typeof token !== 'string' ? (token as Domain).chainId : 1;
@@ -160,18 +165,20 @@ export const signERC2612Permit = async (
   nonce?: number,
 ): Promise<ERC2612PermitMessage & RSV> => {
   const tokenAddress = (token as Domain).verifyingContract || token as string;
-  let nonceTemp = 0;
-  if (nonce === undefined) {
-    nonceTemp = await call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${owner.substr(2)}`);
-    nonceTemp = parseInt(nonceTemp+ '');
+  let resolvedNonce: string | number = 0;
+  if (isMissingNonce(nonce)) {
+    const raw = await call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${owner.substr(2)}`);
+    resolvedNonce = parseInt(raw + '', 10) || 0;
+  } else {
+    resolvedNonce = normalizeUint(nonce, 0);
   }
 
   const message: ERC2612PermitMessage = {
     owner,
     spender,
-    value,
-    nonce: nonce === undefined ? nonceTemp : nonce,
-    deadline: deadline || 3325150269000,
+    value: normalizeUint(value, MAX_INT),
+    nonce: resolvedNonce,
+    deadline: normalizeUint(deadline, 3325150269000),
   };
 
   let chainId = typeof token !== 'string' ? (token as Domain).chainId : 1;

@@ -9,6 +9,10 @@ and fix bugs
 
 ## Changelog
 
+### 1.0.3
+- 修复 Coinbase「生成消息时发生错误」：用原始 provider 识别 Coinbase（避免 unwrap 丢标记后误传 JSON 字符串导致二次 stringify）
+- 规范化 permit 的 `nonce` / `deadline` / `value`（空字符串不再写入 EIP-712）
+
 ### 1.0.2
 - Coinbase Wallet dapp 浏览器兼容：`eth_signTypedData_v4` 优先传 typedData 对象，并优先走 `provider.request`
 - 用户取消签名（4001 / `request:fail abort` 等）时不再换格式重试，避免二次弹窗

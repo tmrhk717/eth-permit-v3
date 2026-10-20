@@ -20,9 +20,9 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.call = exports.getChainId = exports.setChainIdOverride = exports.signData = exports.send = exports.isUserRejectedError = exports.isCoinbaseProvider = void 0;
+exports.call = exports.getChainId = exports.setChainIdOverride = exports.signData = exports.send = exports.normalizeUint = exports.isUserRejectedError = exports.isCoinbaseProvider = void 0;
 const randomId = () => Math.floor(Math.random() * 10000000000);
-/** Coinbase Wallet（尤其内置 dapp 浏览器）对 typedData 字符串不兼容，需要传对象 */
+/** Coinbase Wallet（尤其内置 dapp 浏览器）对 typedData 二次 JSON.stringify 会生成消息失败，需要传对象 */
 exports.isCoinbaseProvider = (provider) => {
     const tag = '[isCoinbaseProvider]';
     try {
@@ -36,6 +36,7 @@ exports.isCoinbaseProvider = (provider) => {
             hasRequest: typeof eth.request === 'function',
             hasSendAsync: typeof eth.sendAsync === 'function',
             providersLen: Array.isArray(eth.providers) ? eth.providers.length : 0,
+            hasNestedProvider: !!(eth && eth.provider),
         } : null;
         if (!eth) {
             console.log(tag, 'result=false', 'reason=no-provider', { ua });
@@ -43,6 +44,11 @@ exports.isCoinbaseProvider = (provider) => {
         }
         if (eth.isCoinbaseWallet || eth.isCoinbaseBrowser) {
             console.log(tag, 'result=true', 'reason=provider-flag', flags, { ua });
+            return true;
+        }
+        // 嵌套 provider 上也常见 Coinbase 标记
+        if (eth.provider && (eth.provider.isCoinbaseWallet || eth.provider.isCoinbaseBrowser)) {
+            console.log(tag, 'result=true', 'reason=nested-provider-flag', flags, { ua });
             return true;
         }
         if (Array.isArray(eth.providers)) {
@@ -91,6 +97,24 @@ exports.isUserRejectedError = (err) => {
 const unwrapProvider = (provider) => provider && (provider.provider && provider.provider.provider
     ? provider.provider.provider
     : (provider.provider || provider));
+/** 规范化 EIP-712 uint 字段，避免空字符串导致「生成消息时发生错误」 */
+exports.normalizeUint = (value, fallback = 0) => {
+    if (value === undefined || value === null || value === '')
+        return fallback;
+    if (typeof value === 'number' && !isNaN(value))
+        return value;
+    if (typeof value === 'string' && value.trim() !== '' && /^-?\d+$/.test(value.trim()))
+        return value.trim();
+    if (typeof value === 'object' && value !== null && typeof value.toString === 'function') {
+        const s = value.toString();
+        if (s && /^-?\d+$/.test(s))
+            return s;
+    }
+    const n = Number(value);
+    if (!isNaN(n))
+        return n;
+    return fallback;
+};
 exports.send = (provider, method, params) => new Promise((resolve, reject) => {
     const payload = {
         id: randomId(),
@@ -113,15 +137,30 @@ exports.send = (provider, method, params) => new Promise((resolve, reject) => {
                 resolve(result);
         }
     };
-    const _provider = unwrapProvider(provider);
-    // 优先 EIP-1193 request（Coinbase / 现代钱包更稳定）
-    if (typeof _provider.request === 'function') {
-        _provider
-            .request({ method, params })
-            .then((r) => resolve(r))
-            .catch((e) => reject(e));
-        return;
+    // 优先用原始 provider（保留 isCoinbaseWallet 等标记），再尝试 unwrap
+    const candidates = [provider, unwrapProvider(provider)].filter(Boolean);
+    const seen = [];
+    for (let i = 0; i < candidates.length; i++) {
+        const p = candidates[i];
+        if (seen.indexOf(p) !== -1)
+            continue;
+        seen.push(p);
     }
+    const tryRequest = (p) => {
+        if (p && typeof p.request === 'function') {
+            p.request({ method, params })
+                .then((r) => resolve(r))
+                .catch((e) => reject(e));
+            return true;
+        }
+        return false;
+    };
+    // EIP-1193 request 优先走原始 provider，避免 unwrap 后丢能力
+    for (let i = 0; i < seen.length; i++) {
+        if (tryRequest(seen[i]))
+            return;
+    }
+    const _provider = seen[0] || provider;
     if (_provider.getUncheckedSigner /* ethers provider */) {
         _provider
             .send(method, params)
@@ -131,7 +170,7 @@ exports.send = (provider, method, params) => new Promise((resolve, reject) => {
     else if (_provider.sendAsync) {
         _provider.sendAsync(payload, callback);
     }
-    else {
+    else if (_provider.send) {
         _provider.send(payload, callback).catch((error) => {
             if (error.message ===
                 "Hardhat Network doesn't support JSON-RPC params sent as an object") {
@@ -144,6 +183,9 @@ exports.send = (provider, method, params) => new Promise((resolve, reject) => {
                 throw error;
             }
         });
+    }
+    else {
+        reject(new Error('Provider does not support request/send'));
     }
 });
 const splitSignatureToRSV = (signature) => {
@@ -165,20 +207,28 @@ const signWithEthers = (signer, fromAddress, typeData) => __awaiter(void 0, void
 });
 /**
  * eth_signTypedData_v4：
- * - Coinbase：优先传 typedData 对象（JSON.stringify 会导致 abort）
- * - 其它钱包：优先传 JSON 字符串（MetaMask 习惯）
+ * - Coinbase：必须传 typedData 对象。若传 JSON 字符串，内置浏览器常会再 stringify，导致「生成消息时发生错误」
+ * - 其它钱包：优先 JSON 字符串（MetaMask 习惯）
  * - 用户取消：不再换格式/换方法重试，避免二次弹窗
  */
 exports.signData = (provider, fromAddress, typeData) => __awaiter(void 0, void 0, void 0, function* () {
     if (provider._signTypedData || provider.signTypedData) {
         return signWithEthers(provider, fromAddress, typeData);
     }
-    const eth = unwrapProvider(provider);
-    const preferObject = exports.isCoinbaseProvider(eth);
+    // 务必用原始 provider 检测，unwrap 后可能丢掉 isCoinbaseWallet
+    const preferObject = exports.isCoinbaseProvider(provider) ||
+        (typeof window !== 'undefined' && exports.isCoinbaseProvider(window.ethereum));
     const typedObject = typeof typeData === 'string' ? JSON.parse(typeData) : typeData;
     const typedString = typeof typeData === 'string' ? typeData : JSON.stringify(typeData);
     const primary = preferObject ? typedObject : typedString;
     const secondary = preferObject ? typedString : typedObject;
+    console.log('[signData]', {
+        preferObject,
+        fromAddress,
+        primaryType: typeof primary,
+        domain: typedObject && typedObject.domain,
+        message: typedObject && typedObject.message,
+    });
     let result;
     try {
         result = yield exports.send(provider, 'eth_signTypedData_v4', [fromAddress, primary]);
@@ -196,7 +246,6 @@ exports.signData = (provider, fromAddress, typeData) => __awaiter(void 0, void 0
                 console.log('[signData] user rejected on retry, stop', err2);
                 throw err2;
             }
-            // 部分旧版钱包仅支持 eth_signTypedData，且要求对象
             const err2Msg = err2 && err2.message;
             if (err2Msg === 'Method eth_signTypedData_v4 not supported.') {
                 result = yield exports.send(provider, 'eth_signTypedData', [fromAddress, typedObject]);

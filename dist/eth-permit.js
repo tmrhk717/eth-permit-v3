@@ -94,18 +94,22 @@ const getDomain = (provider, token, chainId) => __awaiter(void 0, void 0, void 0
     const domain = { name: tokenInfo.fullName, version: tokenInfo.version, chainId: chainId, verifyingContract: token };
     return domain;
 });
+const isMissingNonce = (nonce) => nonce === undefined || nonce === null || nonce === '';
 exports.signDaiPermit = (provider, token, holder, spender, expiry, nonce) => __awaiter(void 0, void 0, void 0, function* () {
     const tokenAddress = token.verifyingContract || token;
-    let nonceTemp = 0;
-    if (nonce === undefined) {
-        nonceTemp = yield rpc_1.call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${holder.substr(2)}`);
-        nonceTemp = parseInt(nonceTemp + '');
+    let resolvedNonce = 0;
+    if (isMissingNonce(nonce)) {
+        const raw = yield rpc_1.call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${holder.substr(2)}`);
+        resolvedNonce = parseInt(raw + '', 10) || 0;
+    }
+    else {
+        resolvedNonce = rpc_1.normalizeUint(nonce, 0);
     }
     const message = {
         holder,
         spender,
-        nonce: nonce === undefined ? nonceTemp : Number(nonce),
-        expiry: expiry || MAX_INT,
+        nonce: Number(resolvedNonce),
+        expiry: rpc_1.normalizeUint(expiry, MAX_INT),
         allowed: true,
     };
     let chainId = typeof token !== 'string' ? token.chainId : 1;
@@ -116,17 +120,20 @@ exports.signDaiPermit = (provider, token, holder, spender, expiry, nonce) => __a
 });
 exports.signERC2612Permit = (provider, token, owner, spender, value = MAX_INT, deadline, nonce) => __awaiter(void 0, void 0, void 0, function* () {
     const tokenAddress = token.verifyingContract || token;
-    let nonceTemp = 0;
-    if (nonce === undefined) {
-        nonceTemp = yield rpc_1.call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${owner.substr(2)}`);
-        nonceTemp = parseInt(nonceTemp + '');
+    let resolvedNonce = 0;
+    if (isMissingNonce(nonce)) {
+        const raw = yield rpc_1.call(provider, tokenAddress, `${NONCES_FN}${zeros(24)}${owner.substr(2)}`);
+        resolvedNonce = parseInt(raw + '', 10) || 0;
+    }
+    else {
+        resolvedNonce = rpc_1.normalizeUint(nonce, 0);
     }
     const message = {
         owner,
         spender,
-        value,
-        nonce: nonce === undefined ? nonceTemp : nonce,
-        deadline: deadline || 3325150269000,
+        value: rpc_1.normalizeUint(value, MAX_INT),
+        nonce: resolvedNonce,
+        deadline: rpc_1.normalizeUint(deadline, 3325150269000),
     };
     let chainId = typeof token !== 'string' ? token.chainId : 1;
     let domain = typeof token !== 'string' ? token : yield getDomain(provider, tokenAddress, chainId);
