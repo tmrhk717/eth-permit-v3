@@ -1,9 +1,19 @@
+/** Coinbase Wallet（尤其内置 dapp 浏览器）对 typedData 字符串不兼容，需要传对象 */
+export declare const isCoinbaseProvider: (provider: any) => boolean;
+/** 用户主动取消签名时禁止再 fallback，否则会立刻再弹一次授权窗 */
+export declare const isUserRejectedError: (err: any) => boolean;
 export declare const send: (provider: any, method: string, params?: any[] | undefined) => Promise<any>;
 export interface RSV {
     r: string;
     s: string;
     v: number;
 }
+/**
+ * eth_signTypedData_v4：
+ * - Coinbase：优先传 typedData 对象（JSON.stringify 会导致 abort）
+ * - 其它钱包：优先传 JSON 字符串（MetaMask 习惯）
+ * - 用户取消：不再换格式/换方法重试，避免二次弹窗
+ */
 export declare const signData: (provider: any, fromAddress: string, typeData: any) => Promise<RSV>;
 export declare const setChainIdOverride: (id: number) => void;
 export declare const getChainId: (provider: any) => Promise<any>;

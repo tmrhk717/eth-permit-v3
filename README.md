@@ -6,6 +6,13 @@ npm publish --access public
 # bug fix
 clone github.com/tmrhk717/eth-permit-v3
 and fix bugs 
+
+## Changelog
+
+### 1.0.2
+- Coinbase Wallet dapp 浏览器兼容：`eth_signTypedData_v4` 优先传 typedData 对象，并优先走 `provider.request`
+- 用户取消签名（4001 / `request:fail abort` 等）时不再换格式重试，避免二次弹窗
+
 # eth-permit
 
 This package simplifies the process of signing `permit` messages for Ethereum tokens.
